@@ -38,7 +38,7 @@
 # Default Environment vars
 # can be overridden
 
-ARDUINO_PORT ?= /dev/tty.usbserial-*
+ARDUINO_PORT ?= COM3
 ARDUINO_UPLOAD_RATE ?= 57600
 ARDUINO_AVRDUDE_PROGRAMMER ?= stk500v1
 ARDUINO_MCU ?= atmega328p
@@ -47,7 +47,7 @@ ARDUINO_F_CPU ?= 16000000
 
 
 TARGET = $(notdir $(CURDIR))
-INSTALL_DIR = /Applications/Arduino.app/Contents/Resources/Java
+INSTALL_DIR =  C:/arduino/arduino-ide
 UPLOAD_RATE = 		$(ARDUINO_UPLOAD_RATE)
 PORT = 			$(ARDUINO_PORT)
 AVRDUDE_PROGRAMMER = 	$(ARDUINO_AVRDUDE_PROGRAMMER)
@@ -57,19 +57,20 @@ F_CPU = 		$(ARDUINO_F_CPU)
 ############################################################################
 # Below here nothing should be changed...
 
-VERSION=21
+VERSION=100
 ARDUINO = $(INSTALL_DIR)/hardware/arduino/cores/arduino
+ARDUINO_VARIANT= $(INSTALL_DIR)/hardware/arduino/variants/standard
 AVR_TOOLS_PATH = $(INSTALL_DIR)/hardware/tools/avr/bin
 # AVR_TOOLS_PATH = /usr/bin
 AVRDUDE_PATH = $(INSTALL_DIR)/hardware/tools/avr/bin
 C_MODULES =  \
 $(ARDUINO)/wiring_pulse.c \
 $(ARDUINO)/wiring_analog.c \
-$(ARDUINO)/pins_arduino.c \
 $(ARDUINO)/wiring.c \
 $(ARDUINO)/wiring_digital.c \
 $(ARDUINO)/WInterrupts.c \
 $(ARDUINO)/wiring_shift.c \
+#$(ARDUINO_VARIANT)/pins_arduino.c \
 # end of C_MODULES
 
 CXX_MODULES = \
@@ -80,12 +81,12 @@ $(ARDUINO)/Print.cpp \
 $(ARDUINO)/HardwareSerial.cpp
 
 ARDUINO_LIB = \
-$(wildcard $(INSTALL_DIR)/libraries/*/*.cpp) \
-$(wildcard $(INSTALL_DIR)/libraries/*/*/*.cpp) \
-$(wildcard $(INSTALL_DIR)/libraries/*/*/*/*.cpp)
+$(wildcard $(INSTALL_DIR)/libraries/*/*.c*) \
+$(wildcard $(INSTALL_DIR)/libraries/*/*/*.c*) \
+$(wildcard $(INSTALL_DIR)/libraries/*/*/*/*.c*)
 
 
-CXX_APP = applet/$(TARGET).cpp
+CXX_APP = $(TARGET).cpp
 MODULES = $(C_MODULES) $(CXX_MODULES) $(ARDUINO_LIB)
 SRC = $(C_MODULES)
 CXXSRC = $(CXX_MODULES) $(CXX_APP) $(ARDUINO_LIB)
@@ -109,7 +110,7 @@ CXXDEFS = -DF_CPU=$(F_CPU)L -DARDUINO=$(VERSION)
 
 AVR_HEADERS = $(INSTALL_DIR)/hardware/tools/avr/avr/include/avr
 
-ARDUINO_LIB_INCLUDES = $(addprefix -I, $(dir $(ARDUINO_LIB)))
+ARDUINO_LIB_INCLUDES = $(addprefix -I, $(dir $(ARDUINO_LIB))) -I$(ARDUINO_VARIANT)
 
 # Place -I options here
 CINCS = -I$(CURDIR) -I$(ARDUINO) $(ARDUINO_LIB_INCLUDES) -I$(AVR_HEADERS)
@@ -178,21 +179,6 @@ all: applet_files build sizeafter
 
 build: elf hex
 
-#applet_files: $(TARGET).pde
-applet/$(TARGET).cpp: $(TARGET).pde
-	# Here is the "preprocessing".
-	# It creates a .cpp file based with the same name as the .pde file.
-	# On top of the new .cpp file comes the WProgram.h header.
-	# and prototypes for setup() and Loop()
-	# Then the .cpp file will be compiled. Errors during compile will
-	# refer to this new, automatically generated, file.
-	# Not the original .pde file you actually edit...
-	test -d applet || mkdir applet
-	echo '#include "WProgram.h"' > applet/$(TARGET).cpp
-	echo 'void setup();' >> applet/$(TARGET).cpp
-	echo 'void loop();' >> applet/$(TARGET).cpp
-	cat $(TARGET).pde >> applet/$(TARGET).cpp
-
 elf: applet/$(TARGET).elf
 hex: applet/$(TARGET).hex
 eep: applet/$(TARGET).eep
@@ -250,10 +236,11 @@ extcoff: $(TARGET).elf
 
 	# Link: create ELF output file from library.
 #applet/$(TARGET).elf: $(TARGET).pde applet/core.a
-applet/$(TARGET).elf: applet/$(TARGET).o applet/core.a
-	$(LD) $(ALL_LDFLAGS) -o $@ applet/$(TARGET).o applet/core.a
+applet/$(TARGET).elf: $(TARGET).o applet/core.a
+	$(LD) $(ALL_LDFLAGS) -o $@ $(TARGET).o applet/core.a
 
 applet/core.a: $(OBJ_MODULES)
+	test -d applet || mkdir applet
 	@for i in $(OBJ_MODULES); do echo $(AR) rcs applet/core.a $$i; $(AR) rcs applet/core.a $$i; done
 
 
